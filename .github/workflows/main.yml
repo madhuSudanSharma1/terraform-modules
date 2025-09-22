@@ -1,0 +1,80 @@
+name: CI
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'infrastructure/**'
+      - '.github/workflows/**'
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    name: Terraform Plan
+    permissions:
+      id-token: write
+      contents: read
+      pull-requests: write
+    steps:
+        with:
+          terraform_version: 1.12.0
+
+      - name: Terraform Init
+        run: terraform init
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials with OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.OIDC_ROLE }}
+          aws-region: us-east-1
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.12.0
+
+      - name: Terraform Init
+        run: terraform init
+        working-directory: ./infrastructure
+        
+      - name: Select or Create Workspace
+        working-directory: ./infrastructure
+        run: |
+          set -euo pipefail
+
+          # Determine workspace based on branch name
+          if [[ "${GITHUB_REF##*/}" == "main" ]]; then
+            WORKSPACE="prod"
+          else
+            WORKSPACE="dev"
+          fi
+          
+          echo "Branch: ${{ github.ref }}"
+          echo "Using Terraform workspace: $WORKSPACE"
+
+          # Normalize and search for exact match
+          EXISTING=$(terraform workspace list | sed 's/^[* ]*//' | grep -Fx "$WORKSPACE" || true)
+
+          if [ -n "$EXISTING" ]; then
+            echo "Selecting existing workspace: $WORKSPACE"
+            terraform workspace select "$WORKSPACE"
+          else
+            echo "Creating new workspace: $WORKSPACE"
+            terraform workspace new "$WORKSPACE"
+          fi
+
+      - name: Terraform Plan
+        id: plan
+        run: terraform plan -no-color -out=tfplan
+        working-directory: ./infrastructure
+
+      - name: Terraform Apply
+        id: apply
+        run: terraform apply -auto-approve tfplan
+        working-directory: ./infrastructure
+
+      
