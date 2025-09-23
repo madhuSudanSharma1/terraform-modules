@@ -1,6 +1,4 @@
-########################################
 # VPC
-########################################
 resource "aws_vpc" "this" {
   cidr_block           = var.vpc_cidr
   enable_dns_support   = var.enable_dns_support # This option enables DNS resolution within the VPC
@@ -15,23 +13,19 @@ resource "aws_vpc_ipv4_cidr_block_association" "secondary" {
   cidr_block = var.secondary_cidr
 }
 
-########################################
 # Internet Gateway
-########################################
 resource "aws_internet_gateway" "this" {
   count = length(var.public_subnets) > 0 ? 1 : 0
   vpc_id = aws_vpc.this.id
   tags   = merge(var.tags, { Name = "${var.name}-igw" })
 }
 
-########################################
 # Subnets
-########################################
 resource "aws_subnet" "public" {
   count             = length(var.public_subnets)
   vpc_id            = aws_vpc.this.id
   cidr_block        = var.public_subnets[count.index]
-  map_public_ip_on_launch = true
+  map_public_ip_on_launch = true # auto assign public IP to instances launched in this subnet
   availability_zone = element(var.azs, count.index)
   tags = merge(var.tags, { Name = "${var.name}-public-${count.index}" })
 }
@@ -45,9 +39,7 @@ resource "aws_subnet" "private" {
   tags = merge(var.tags, { Name = "${var.name}-private-${count.index}" })
 }
 
-########################################
 # Route Tables
-########################################
 # Public route table
 resource "aws_route_table" "public" {
   vpc_id = aws_vpc.this.id
@@ -72,18 +64,14 @@ resource "aws_route_table_association" "private" {
   route_table_id = aws_route_table.private.id
 }
 
-########################################
 # Routes (Public and Private)
-########################################
 
 # Public routes
 resource "aws_route" "public_routes" {
   for_each             = { for idx, rt in var.route_entries.public : idx => rt }
   route_table_id       = aws_route_table.public.id
   destination_cidr_block = each.value.cidr
-  gateway_id           = lookup(each.value, "gateway_id", null)
-  nat_gateway_id       = each.value.use_nat_gateway ? try(aws_nat_gateway.this[0].id, null) : null
-  instance_id          = each.value.use_nat_instance ? try(aws_instance.nat_instance[0].id, null) : null
+  gateway_id           = aws_internet_gateway.this[0].id
 }
 
 # Private routes
@@ -91,16 +79,13 @@ resource "aws_route" "private_routes" {
   for_each             = { for idx, rt in var.route_entries.private : idx => rt }
   route_table_id       = aws_route_table.private.id
   destination_cidr_block = each.value.cidr
-  gateway_id           = lookup(each.value, "gateway_id", null)
-  nat_gateway_id       = each.value.use_nat_gateway ? try(aws_nat_gateway.this[0].id, null) : null
-  instance_id          = each.value.use_nat_instance ? try(aws_instance.nat_instance[0].id, null) : null
+  nat_gateway_id       = var.nat_type == "gateway" ? try(aws_nat_gateway.this[0].id, null) : null
+  # instance_id          = var.nat_type == "instance" ? try(aws_instance.nat_instance[0].id, null) : null
 }
 
 
 
-########################################
 # NAT (Gateway or Instance)
-########################################
 # EIP for NAT Gateway
 resource "aws_eip" "nat" {
   count = var.nat_type == "gateway" && length(var.public_subnets) > 0 ? 1 : 0
@@ -124,6 +109,3 @@ resource "aws_instance" "nat_instance" {
   source_dest_check           = false
   tags                        = merge(var.tags, { Name = "${var.name}-nat-instance" })
 }
-
-
-

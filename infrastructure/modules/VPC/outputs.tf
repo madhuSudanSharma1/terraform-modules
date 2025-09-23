@@ -1,17 +1,32 @@
 output "vpc_id" {
-  value = aws_vpc.this.id
+  description = "ID of the VPC"
+  value       = aws_vpc.this.id
 }
 
-output "public_subnet_ids" {
-  value = aws_subnet.public[*].id
+output "vpc_cidr_block" {
+  description = "CIDR block of the VPC"
+  value       = aws_vpc.this.cidr_block
 }
 
-output "private_subnet_ids" {
-  value = aws_subnet.private[*].id
+output "subnet_ids_by_az" {
+  value = {
+    for i, az in var.azs :
+    az => {
+      public  = try(aws_subnet.public[i].id, null)
+      private = try(aws_subnet.private[i].id, null)
+    }
+  }
+}
+
+
+output "internet_gateway_id" {
+  description = "ID of the Internet Gateway"
+  value       = try(aws_internet_gateway.this[0].id, null)
 }
 
 output "nat_gateway_id" {
-  value = try(aws_nat_gateway.this[0].id, null)
+  description = "ID of the NAT Gateway"
+  value       = try(aws_nat_gateway.this[0].id, null)
 }
 
 output "nat_instance_id" {
