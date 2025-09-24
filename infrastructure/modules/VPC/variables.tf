@@ -49,20 +49,22 @@ variable "nat_instance_type" {
   default     = "t3.micro"
 }
 
+variable "nat_user_data" {
+  description = "User data script for NAT instances"
+  type        = string
+  default     = null
+}
+
 variable "route_entries" {
   description = "Routes grouped by route table type"
   type = object({
-    public  = optional(list(object({
-      cidr             = string
-      gateway_id       = optional(string)
-      use_nat_gateway  = optional(bool, false)
-      use_nat_instance = optional(bool, false)
+    public = optional(list(object({
+      cidr       = string
+      gateway_id = optional(string)
     })), [])
     private = optional(list(object({
-      cidr             = string
-      gateway_id       = optional(string)
-      use_nat_gateway  = optional(bool, false)
-      use_nat_instance = optional(bool, false)
+      cidr                 = string
+      network_interface_id = optional(string)
     })), [])
   })
   default = {

@@ -1,7 +1,7 @@
 variable "aws_region" {
   description = "The AWS region to deploy resources in"
   type        = string
-  default     = "us-east-1"  
+  default     = "us-east-1"
 }
 variable "vpc_name" {
   description = "The name of the VPC"
@@ -36,7 +36,7 @@ variable "secondary_cidr" {
 variable "tags" {
   description = "A map of tags to assign to resources"
   type        = map(string)
-  default     = {
+  default = {
     Environment = "dev"
     Project     = "modular-infra"
   }
@@ -49,7 +49,7 @@ variable "nat_type" {
 variable "route_entries" {
   description = "Routes grouped by route table type"
   type = object({
-    public  = optional(list(object({
+    public = optional(list(object({
       cidr             = string
       gateway_id       = optional(string)
       use_nat_gateway  = optional(bool, false)
@@ -66,4 +66,12 @@ variable "route_entries" {
     public  = [{ cidr = "0.0.0.0/0" }]
     private = [{ cidr = "0.0.0.0/0", use_nat_gateway = true }]
   }
+}
+variable "nat_ami" {
+  description = "AMI ID for NAT instance (if using instance)"
+  type        = string
+}
+variable "normal_ami" {
+  description = "AMI ID for normal EC2 instance"
+  type        = string
 }
