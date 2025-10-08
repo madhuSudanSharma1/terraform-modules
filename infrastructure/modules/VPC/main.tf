@@ -42,28 +42,28 @@ resource "aws_subnet" "private" {
 # Route Tables - One per AZ
 # Public route tables
 resource "aws_route_table" "public" {
-  count  = length(var.public_subnets)
+  count  = length(var.public_subnets) > 0 ? length(var.azs) : 0
   vpc_id = aws_vpc.this.id
-  tags   = merge(var.tags, { Name = "${var.name}-public-rt-${count.index}" })
+  tags   = merge(var.tags, { Name = "${var.name}-public-rt-${var.azs[count.index]}" })
 }
 
 resource "aws_route_table_association" "public" {
   count          = length(aws_subnet.public)
   subnet_id      = aws_subnet.public[count.index].id
-  route_table_id = aws_route_table.public[count.index].id
+  route_table_id = aws_route_table.public[count.index % length(var.azs)].id
 }
 
 # Private route tables
 resource "aws_route_table" "private" {
-  count  = length(var.private_subnets)
+  count  = length(var.private_subnets) > 0 ? length(var.azs) : 0
   vpc_id = aws_vpc.this.id
-  tags   = merge(var.tags, { Name = "${var.name}-private-rt-${count.index}" })
+  tags   = merge(var.tags, { Name = "${var.name}-private-rt-${var.azs[count.index]}" })
 }
 
 resource "aws_route_table_association" "private" {
   count          = length(aws_subnet.private)
   subnet_id      = aws_subnet.private[count.index].id
-  route_table_id = aws_route_table.private[count.index].id
+  route_table_id = aws_route_table.private[count.index % length(var.azs)].id
 }
 
 # Routes (Public and Private)
@@ -73,9 +73,9 @@ resource "aws_route" "public_routes" {
   for_each = {
     for route_combo in flatten([
       for rt_idx, rt in var.route_entries.public : [
-        for pub_rt_idx in range(length(var.public_subnets)) : {
-          key                    = "${rt_idx}-${pub_rt_idx}"
-          route_table_id         = aws_route_table.public[pub_rt_idx].id
+        for az_idx in range(length(var.azs)) : {
+          key                    = "${rt_idx}-${az_idx}"
+          route_table_id         = aws_route_table.public[az_idx].id
           destination_cidr_block = rt.cidr
         }
       ]
@@ -92,29 +92,30 @@ resource "aws_route" "private_routes_instance_gateway" {
   for_each = var.nat_type == "gateway" ? {
     for route_combo in flatten([
       for rt_idx, rt in var.route_entries.private : [
-        for priv_rt_idx in range(length(var.private_subnets)) : {
-          key                    = "${rt_idx}-${priv_rt_idx}"
-          route_table_id         = aws_route_table.private[priv_rt_idx].id
+        for az_idx in range(length(var.azs)) : {
+          key                    = "${rt_idx}-${az_idx}"
+          route_table_id         = aws_route_table.private[az_idx].id
           destination_cidr_block = rt.cidr
-          nat_gateway_id         = aws_nat_gateway.this[priv_rt_idx].id
+          nat_gateway_id         = aws_nat_gateway.this[az_idx].id
         }
       ]
     ]) : route_combo.key => route_combo
-    } : {}
+  } : {}
 
   route_table_id         = each.value.route_table_id
   destination_cidr_block = each.value.destination_cidr_block
   nat_gateway_id         = each.value.nat_gateway_id
 }
+
 resource "aws_route" "private_routes_instance_instance" {
   for_each = var.nat_type == "instance" ? {
     for route_combo in flatten([
       for rt_idx, rt in var.route_entries.private : [
-        for priv_rt_idx in range(length(var.private_subnets)) : {
-          key                      = "${rt_idx}-${priv_rt_idx}"
-          route_table_id           = aws_route_table.private[priv_rt_idx].id
-          destination_cidr_block   = rt.cidr
-          network_interface_id     = module.nat_instance[priv_rt_idx].primary_network_interface_id
+        for az_idx in range(length(var.azs)) : {
+          key                    = "${rt_idx}-${az_idx}"
+          route_table_id         = aws_route_table.private[az_idx].id
+          destination_cidr_block = rt.cidr
+          network_interface_id   = module.nat_instance[az_idx].primary_network_interface_id
         }
       ]
     ]) : route_combo.key => route_combo
@@ -128,16 +129,16 @@ resource "aws_route" "private_routes_instance_instance" {
 # NAT (Gateway or Instance) - One per AZ
 # EIP for NAT Gateway - One per AZ
 resource "aws_eip" "nat" {
-  count  = var.nat_type == "gateway" && length(var.public_subnets) > 0 ? length(var.public_subnets) : 0
+  count  = var.nat_type == "gateway" && length(var.public_subnets) > 0 ? length(var.azs) : 0
   domain = "vpc"
-  tags   = merge(var.tags, { Name = "${var.name}-nat-eip-${count.index}" })
+  tags   = merge(var.tags, { Name = "${var.name}-nat-eip-${var.azs[count.index]}" })
 }
 
 resource "aws_nat_gateway" "this" {
-  count         = var.nat_type == "gateway" && length(var.public_subnets) > 0 ? length(var.public_subnets) : 0
+  count         = var.nat_type == "gateway" && length(var.public_subnets) > 0 ? length(var.azs) : 0
   allocation_id = aws_eip.nat[count.index].id
-  subnet_id     = aws_subnet.public[count.index].id
-  tags          = merge(var.tags, { Name = "${var.name}-natgw-${count.index}" })
+  subnet_id     = aws_subnet.public[count.index * (length(var.public_subnets) / length(var.azs))].id
+  tags          = merge(var.tags, { Name = "${var.name}-natgw-${var.azs[count.index]}" })
 }
 
 # NAT Role
@@ -207,12 +208,12 @@ data "aws_iam_policy_document" "nat_assume_role" {
 
 # NAT Instance (if chosen instead of gateway) - One per AZ
 module "nat_instance" {
-  count  = var.nat_type == "instance" ? length(var.public_subnets) : 0
+  count  = var.nat_type == "instance" ? length(var.azs) : 0
   source = "../EC2"
 
   ami_id                      = var.nat_ami
   instance_type               = var.nat_instance_type
-  subnet_id                   = aws_subnet.public[count.index].id
+  subnet_id                   = aws_subnet.public[count.index * (length(var.public_subnets) / length(var.azs))].id
   associate_public_ip_address = true
   source_dest_check           = false
 
@@ -221,6 +222,6 @@ module "nat_instance" {
 
   user_data = ""
 
-  tags = merge(var.tags, { Name = "${var.name}-nat-instance-${count.index}" })
-  name = "${var.name}-nat-instance-${count.index}"
+  tags = merge(var.tags, { Name = "${var.name}-nat-instance-${var.azs[count.index]}" })
+  name = "${var.name}-nat-instance-${var.azs[count.index]}"
 }

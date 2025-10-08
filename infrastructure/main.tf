@@ -7,7 +7,7 @@ provider "aws" {
 module "vpc" {
   source               = "./modules/VPC"
   name                 = var.vpc_name
-  vpc_cidr             = var.vpc_cidr # Changed from 'cidr' to 'vpc_cidr'
+  vpc_cidr             = var.vpc_cidr
   azs                  = var.availability_zones
   public_subnets       = var.public_subnets
   private_subnets      = var.private_subnets
@@ -20,60 +20,94 @@ module "vpc" {
   nat_instance_type    = "t2.micro"
 }
 
-module "public_sg" {
-  source = "./modules/security-group"
-
-  security_group_name        = "${var.vpc_name}-public-sg"
-  security_group_description = "Security group for public instances"
-  vpc_id                     = module.vpc.vpc_id
-
-  ingress_rules = [
-    {
-      description = "Allow inbound SSH"
-      protocol    = "tcp"
-      from_port   = 22
-      to_port     = 22
-      cidr_blocks = ["0.0.0.0/0"]
-    },
-  ]
-
-  egress_rules = [
-    {
-      description = "Allow all outbound"
-      protocol    = "-1"
-      from_port   = 0
-      to_port     = 0
-      cidr_blocks = ["0.0.0.0/0"]
+module "ecs" {
+  source               = "./modules/ECS"
+  cluster_name         = "madhu-ecs-cluster"
+  launch_type          = "FARGATE"
+  subnets              = module.vpc.subnet_ids_by_az
+  vpc_id               = module.vpc.vpc_id
+  vpc_cidr             = module.vpc.vpc_cidr_block
+  load_balancer_config = var.lb_config
+  services = {
+    frontend = {
+      task_family   = "frontend"
+      cpu           = "256"
+      memory        = "512"
+      desired_count = 1
+      container_definitions = [
+        {
+          name      = "frontend"
+          image     = "702865854817.dkr.ecr.us-east-1.amazonaws.com/madhu-frontend:latest"
+          cpu       = 256
+          memory    = 512
+          essential = true
+          portMappings = [{
+            containerPort = 80
+            hostPort      = 80
+            protocol      = "tcp"
+            name          = "frontend-port"
+          }]
+          logConfiguration = {
+            logDriver = "awslogs"
+            options = {
+              awslogs-group         = "/ecs/madhu-ecs-cluster/frontend"
+              awslogs-region        = var.aws_region
+              awslogs-stream-prefix = "ecs"
+            }
+          }
+        }
+      ]
+      load_balancer_config = {
+        target_group_arn = module.ecs.lb_target_group_arns["frontend"]
+        container_name   = "frontend"
+        container_port   = 80
+      }
+      service_connect_configuration = {
+        services = []
+      }
     }
-  ]
 
-  tags = var.tags
+    backend = {
+      task_family   = "backend"
+      cpu           = "256"
+      memory        = "512"
+      desired_count = 1
+      container_definitions = [
+        {
+          name      = "backend"
+          image     = "702865854817.dkr.ecr.us-east-1.amazonaws.com/madhu-backend:latest"
+          cpu       = 256
+          memory    = 512
+          essential = true
+          portMappings = [{
+            containerPort = 80
+            hostPort      = 80
+            protocol      = "tcp"
+            name          = "backend-port"
+          }]
+          logConfiguration = {
+            logDriver = "awslogs"
+            options = {
+              awslogs-group         = "/ecs/madhu-ecs-cluster/backend"
+              awslogs-region        = var.aws_region
+              awslogs-stream-prefix = "ecs"
+            }
+          }
+        }
+      ]
+      service_connect_configuration = {
+        services = [
+          {
+            port_name = "backend-port"
+            discovery_name = "backend"
+            client_alias = {
+              port     = 80
+            }
+          }
+        ]
+      }
+    }
+  }
 }
 
-# Bastion Host
-module "ec2_instance" {
-  source          = "./modules/EC2"
-  name           = "Bastion-Host"
-  instance_type   = "t2.micro"
-  ami_id          = var.normal_ami
-  subnet_id       = module.vpc.subnet_ids_by_az[var.availability_zones[0]].public
-  key_name        = "test-key-pair"
-  security_group_ids = [module.public_sg.security_group_id] 
-  associate_public_ip_address = true
-  tags = merge(var.tags, { Name = "Bastion-Host" })
-  iam_instance_profile = module.vpc.iam_instance_profile
-}
 
-#Private Instance
-module "private_ec2_instance" {
-  source          = "./modules/EC2"
-  name           = "Private-Instance"
-  instance_type   = "t2.micro"
-  ami_id          = var.normal_ami
-  subnet_id       = module.vpc.subnet_ids_by_az[var.availability_zones[0]].private
-  security_group_ids = [module.public_sg.security_group_id]
-  key_name        = "test-key-pair"
-  associate_public_ip_address = false
-  tags = merge(var.tags, { Name = "Private-Instance" })
-  iam_instance_profile = module.vpc.iam_instance_profile
-}

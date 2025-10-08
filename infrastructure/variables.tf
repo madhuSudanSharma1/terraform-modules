@@ -1,7 +1,6 @@
 variable "aws_region" {
   description = "The AWS region to deploy resources in"
   type        = string
-  default     = "us-east-1"
 }
 variable "vpc_name" {
   description = "The name of the VPC"
@@ -16,7 +15,6 @@ variable "vpc_cidr" {
 variable "availability_zones" {
   description = "List of availability zones"
   type        = list(string)
-  default     = ["us-east-1a", "us-east-1b"]
 }
 variable "public_subnets" {
   description = "List of public subnet CIDR blocks"
@@ -75,3 +73,60 @@ variable "normal_ami" {
   description = "AMI ID for normal EC2 instance"
   type        = string
 }
+
+
+variable "lb_config" {
+  type = object({
+    lb_listeners = list(object({
+      port            = number
+      protocol        = string
+      ssl_policy      = optional(string)
+      certificate_arn = optional(string)
+      default_actions = list(object({
+        type             = string
+        target_group_arn = optional(string)
+        order            = optional(number)
+        redirect = optional(object({
+          port        = optional(string, "443")
+          protocol    = optional(string, "HTTPS")
+          status_code = optional(string, "HTTP_301")
+        }))
+        fixed_response = optional(object({
+          content_type = optional(string, "text/plain")
+          message_body = optional(string, "Default response")
+          status_code  = optional(string, "404")
+        }))
+      }))
+    })),
+    lb_listener_rules = list(object({
+      listener_port     = number
+      priority          = number
+      target_group_name = string
+      action_type       = string
+      conditions = list(object({
+        host_values = optional(list(string))
+        path_values = optional(list(string))
+      }))
+    })),
+    lb_target_groups = list(object({
+      name        = string
+      port        = number
+      protocol    = string
+      target_type = optional(string, "ip")
+      health_check = optional(object({
+        path                = optional(string)
+        protocol            = optional(string)
+        matcher             = optional(string)
+        interval            = optional(number)
+        timeout             = optional(number)
+        healthy_threshold   = optional(number)
+        unhealthy_threshold = optional(number)
+      }))
+    }))
+  })
+  description = "Load balancer configuration"
+  default = null
+
+}
+
+
