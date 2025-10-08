@@ -2,7 +2,7 @@
 module "ec2_security_group" {
   count = var.launch_type == "EC2" ? 1 : 0
 
-  source = "../security-group"
+  source = "../security_group"
 
   security_group_name        = "${var.cluster_name}-ec2-sg"
   security_group_description = "Security group for ECS EC2 instances"
@@ -35,7 +35,7 @@ module "ec2_security_group" {
 module "awsvpc_mode_security_group" {
   count = var.launch_type == "FARGATE" || var.network_mode == "awsvpc" ? 1 : 0
 
-  source = "../security-group"
+  source = "../security_group"
 
   security_group_name        = "${var.cluster_name}-fargate-sg"
   security_group_description = "Security group for ECS Fargate tasks"
@@ -75,7 +75,7 @@ module "awsvpc_mode_security_group" {
 module "ecs_instance_role" {
   count = var.launch_type == "EC2" ? 1 : 0
 
-  source = "../IAM_Roles"
+  source = "../iam_role"
 
   role_name = "${var.cluster_name}-ec2-instance-role"
   assume_role_policy = jsonencode({
@@ -102,7 +102,7 @@ module "ecs_instance_role" {
 
 # ECS Task Execution
 module "ecs_task_execution_role" {
-  source = "../IAM_Roles"
+  source = "../iam_role"
 
   role_name = "${var.cluster_name}-task-execution-role"
   assume_role_policy = jsonencode({
@@ -131,7 +131,7 @@ module "ecs_task_execution_role" {
 # Task Role (for permission for application running in ECS)
 module "ecs_task_role" {
 
-  source = "../IAM_Roles"
+  source = "../iam_role"
 
   role_name = "${var.cluster_name}-task-role"
   assume_role_policy = jsonencode({
@@ -158,7 +158,7 @@ module "ecs_task_role" {
 module "lb_security_group" {
   count = var.load_balancer_config != null ? 1 : 0
   tags = var.tags
-  source = "../security-group"
+  source = "../security_group"
 
   security_group_name        = "${var.cluster_name}-lb-sg"
   security_group_description = "Security group for ECS Load Balancer"

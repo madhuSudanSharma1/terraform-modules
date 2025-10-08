@@ -25,12 +25,6 @@ variable "subnet_ids" {
   type        = list(string)
 }
 
-variable "security_group_ids" {
-  description = "Security group IDs for the LB (only for ALB)"
-  type        = list(string)
-  default     = []
-}
-
 variable "tags" {
   description = "Tags to apply to all LB resources"
   type        = map(string)

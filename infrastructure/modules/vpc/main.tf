@@ -144,7 +144,7 @@ resource "aws_nat_gateway" "this" {
 # NAT Role
 module "nat_iam_role" {
   count  = var.nat_type == "instance" ? 1 : 0
-  source = "../IAM_Roles"
+  source = "../iam_role"
 
   role_name               = "${var.name}-nat-role"
   assume_role_policy      = data.aws_iam_policy_document.nat_assume_role.json
@@ -157,7 +157,7 @@ module "nat_iam_role" {
 # NAT SG
 module "nat_sg" {
   count  = var.nat_type == "instance" ? 1 : 0
-  source = "../security-group"
+  source = "../security_group"
 
   security_group_name        = "${var.name}-nat-sg"
   security_group_description = "Security group for NAT instances"
@@ -209,7 +209,7 @@ data "aws_iam_policy_document" "nat_assume_role" {
 # NAT Instance (if chosen instead of gateway) - One per AZ
 module "nat_instance" {
   count  = var.nat_type == "instance" ? length(var.azs) : 0
-  source = "../EC2"
+  source = "../ec2"
 
   ami_id                      = var.nat_ami
   instance_type               = var.nat_instance_type

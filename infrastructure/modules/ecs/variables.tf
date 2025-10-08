@@ -137,7 +137,7 @@ variable "deployment_minimum_healthy_percent" {
 variable "services" {
   description = "Map of services to create"
   type = map(object({
-    task_family           = string
+    task_family           = optional(string)
     container_definitions = any
     desired_count         = optional(number, 1)
     cpu                   = optional(string, "256")

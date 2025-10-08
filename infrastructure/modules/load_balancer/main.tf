@@ -1,10 +1,47 @@
+# Load Balancer Security Group
+#  SG for LB
+module "lb_security_group" {
+  tags = var.tags
+  source = "../security_group"
+
+  security_group_name        = "${var.lb_name}-sg"
+  security_group_description = "Security group for ECS Load Balancer"
+  vpc_id                     = var.vpc_id
+
+  ingress_rules = [
+    {
+      description = "HTTP from anywhere"
+      protocol    = "tcp"
+      from_port   = 80
+      to_port     = 80
+      cidr_blocks = ["0.0.0.0/0"]
+    },
+    {
+      description = "HTTPS from anywhere"
+      protocol    = "tcp"
+      from_port   = 443
+      to_port     = 443
+      cidr_blocks = ["0.0.0.0/0"]
+    }
+  ]
+  egress_rules = [
+    {
+      description = "All outbound traffic"
+      protocol    = "-1"
+      from_port   = 0
+      to_port     = 0
+      cidr_blocks = ["0.0.0.0/0"]
+    }
+  ]
+}
+
 # Load Balancer
 resource "aws_lb" "lb" {
   name               = var.lb_name
   internal           = var.internal
   load_balancer_type = var.lb_type
   subnets            = var.subnet_ids
-  security_groups    = var.lb_type == "application" ? var.security_group_ids : null
+  security_groups    = var.lb_type == "application" ? [module.lb_security_group.security_group_id] : null
 
   tags = merge(
     var.tags,

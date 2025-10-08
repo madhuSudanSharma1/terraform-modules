@@ -148,7 +148,7 @@ resource "aws_ecs_cluster_capacity_providers" "ecs_cluster_capacity_providers" {
 resource "aws_ecs_task_definition" "ecs_task_definitions" {
   for_each = var.services
 
-  family                   = each.value.task_family
+  family                   = each.key
   requires_compatibilities = [var.launch_type]
   network_mode             = var.launch_type == "FARGATE" ? "awsvpc" : var.network_mode
   cpu                      = each.value.cpu
@@ -168,25 +168,6 @@ resource "aws_ecs_task_definition" "ecs_task_definitions" {
 
   tags = var.tags
 }
-
-# Load Balancer
-module "load_balancer" {
-  source  = "../LB"
-  count   = var.load_balancer_config != null ? 1 : 0
-  lb_name = "${var.cluster_name}-lb"
-  subnet_ids = [
-    for az, subnet in var.subnets : subnet.public
-    if subnet.public != null
-  ]
-  vpc_id             = var.vpc_id
-  tags               = var.tags
-  security_group_ids = [module.lb_security_group[0].security_group_id]
-  lb_listeners       = var.load_balancer_config.lb_listeners
-  lb_target_groups   = var.load_balancer_config.lb_target_groups
-  lb_listener_rules  = var.load_balancer_config.lb_listener_rules
-  network_mode       = var.launch_type == "FARGATE" ? "awsvpc" : var.network_mode
-}
-
 
 # Service Connect 
 ## Namespace
@@ -255,6 +236,5 @@ resource "aws_ecs_service" "ecs_services" {
   }
 
   tags = var.tags
-
-  depends_on = [aws_ecs_cluster_capacity_providers.ecs_cluster_capacity_providers, module.load_balancer]
+  depends_on = [ aws_ecs_task_definition.ecs_task_definitions ]
 }

@@ -31,7 +31,7 @@ lb_config = {
       protocol = "HTTP"
       default_actions = [
         {
-          type = "fixed-response"
+          type  = "fixed-response"
           order = 1
           fixed_response = {
             content_type = "text/plain"
@@ -51,6 +51,14 @@ lb_config = {
       health_check = {
         path = "/"
       }
+    },
+    {
+      name     = "backend"
+      port     = 80
+      protocol = "HTTP"
+      health_check = {
+        path = "/backend"
+      }
     }
   ]
 
@@ -58,13 +66,25 @@ lb_config = {
     {
       listener_port     = 80
       priority          = 1
+      target_group_name = "backend"
+      action_type       = "forward"
+      conditions = [
+        {
+          path_values = ["/backend*"]
+        }
+      ]
+    },
+    {
+      listener_port     = 80
+      priority          = 2
       target_group_name = "frontend"
       action_type       = "forward"
       conditions = [
         {
-          path_values = ["/","/backend"]
+          path_values = ["/*"]
         }
       ]
     }
   ]
+
 }

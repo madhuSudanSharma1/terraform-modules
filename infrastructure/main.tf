@@ -5,7 +5,7 @@ provider "aws" {
 
 # VPC
 module "vpc" {
-  source               = "./modules/VPC"
+  source               = "./modules/vpc"
   name                 = var.vpc_name
   vpc_cidr             = var.vpc_cidr
   azs                  = var.availability_zones
@@ -20,17 +20,32 @@ module "vpc" {
   nat_instance_type    = "t2.micro"
 }
 
+# Load Balancer
+module "load_balancer" {
+  source  = "./modules/load_balancer"
+  count   = var.lb_config != null ? 1 : 0
+  lb_name = "${var.ecs_cluster_name}-lb"
+  subnet_ids = [
+    for az, subnet in module.vpc.subnet_ids_by_az : subnet.public
+    if subnet.public != null
+  ]
+  vpc_id             = module.vpc.vpc_id
+  lb_listeners       = var.lb_config.lb_listeners
+  lb_target_groups   = var.lb_config.lb_target_groups
+  lb_listener_rules  = var.lb_config.lb_listener_rules
+  network_mode       = var.ecs_launch_type == "FARGATE" ? "awsvpc" : var.ec2_network_mode
+}
+
 module "ecs" {
-  source               = "./modules/ECS"
-  cluster_name         = "madhu-ecs-cluster"
-  launch_type          = "FARGATE"
+  source               = "./modules/ecs"
+  cluster_name         = var.ecs_cluster_name
+  launch_type          = var.ecs_launch_type
   subnets              = module.vpc.subnet_ids_by_az
   vpc_id               = module.vpc.vpc_id
+  network_mode         = var.ec2_network_mode
   vpc_cidr             = module.vpc.vpc_cidr_block
-  load_balancer_config = var.lb_config
   services = {
     frontend = {
-      task_family   = "frontend"
       cpu           = "256"
       memory        = "512"
       desired_count = 1
@@ -58,7 +73,7 @@ module "ecs" {
         }
       ]
       load_balancer_config = {
-        target_group_arn = module.ecs.lb_target_group_arns["frontend"]
+        target_group_arn = module.load_balancer[0].lb_target_group_arns["frontend"]
         container_name   = "frontend"
         container_port   = 80
       }
@@ -68,7 +83,6 @@ module "ecs" {
     }
 
     backend = {
-      task_family   = "backend"
       cpu           = "256"
       memory        = "512"
       desired_count = 1
@@ -108,6 +122,7 @@ module "ecs" {
       }
     }
   }
+  depends_on = [ module.load_balancer ]
 }
 
 
