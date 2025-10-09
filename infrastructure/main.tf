@@ -44,6 +44,7 @@ module "ecs" {
   vpc_id               = module.vpc.vpc_id
   network_mode         = var.ec2_network_mode
   vpc_cidr             = module.vpc.vpc_cidr_block
+  aws_region          = var.aws_region
   services = {
     frontend = {
       cpu           = "256"
@@ -55,21 +56,12 @@ module "ecs" {
           image     = "702865854817.dkr.ecr.us-east-1.amazonaws.com/madhu-frontend:latest"
           cpu       = 256
           memory    = 512
-          essential = true
           portMappings = [{
             containerPort = 80
             hostPort      = 80
             protocol      = "tcp"
             name          = "frontend-port"
           }]
-          logConfiguration = {
-            logDriver = "awslogs"
-            options = {
-              awslogs-group         = "/ecs/madhu-ecs-cluster/frontend"
-              awslogs-region        = var.aws_region
-              awslogs-stream-prefix = "ecs"
-            }
-          }
         }
       ]
       load_balancer_config = {
@@ -92,33 +84,30 @@ module "ecs" {
           image     = "702865854817.dkr.ecr.us-east-1.amazonaws.com/madhu-backend:latest"
           cpu       = 256
           memory    = 512
-          essential = true
           portMappings = [{
             containerPort = 80
-            hostPort      = 80
+            hostPort      = 8080
             protocol      = "tcp"
             name          = "backend-port"
           }]
-          logConfiguration = {
-            logDriver = "awslogs"
-            options = {
-              awslogs-group         = "/ecs/madhu-ecs-cluster/backend"
-              awslogs-region        = var.aws_region
-              awslogs-stream-prefix = "ecs"
-            }
-          }
+         
         }
       ]
       service_connect_configuration = {
         services = [
           {
-            port_name = "backend-port"
+            port_name     = "backend-port"
             discovery_name = "backend"
             client_alias = {
               port     = 80
             }
           }
         ]
+      }
+      load_balancer_config = {
+        target_group_arn = module.load_balancer[0].lb_target_group_arns["backend"]
+        container_name   = "backend"
+        container_port   = 80
       }
     }
   }

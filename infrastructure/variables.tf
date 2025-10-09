@@ -138,10 +138,10 @@ variable "ecs_cluster_name" {
 variable "ecs_launch_type" {
   description = "The launch type for ECS (EC2 or FARGATE)"
   type        = string
-  default     = "FARGATE"  
+  default     = "EC2"  
 }
 variable "ec2_network_mode" {
   description = "The network mode for EC2 launch type (bridge, host, awsvpc, none)"
   type        = string
-  default     = "awsvpc"  
+  default     = "bridge"  
 }

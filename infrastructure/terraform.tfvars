@@ -1,7 +1,7 @@
-aws_region         = "us-east-1"
+aws_region         = "us-east-2"
 vpc_name           = "madhu"
 vpc_cidr           = "10.0.0.0/16"
-availability_zones = ["us-east-1a", "us-east-1b"]
+availability_zones = ["us-east-2a", "us-east-2b"]
 public_subnets     = ["10.0.1.0/24", "10.0.3.0/24"]
 private_subnets    = ["10.0.2.0/24", "10.0.4.0/24"]
 secondary_cidr     = null
@@ -18,10 +18,10 @@ route_entries = {
     { cidr = "0.0.0.0/0" }
   ]
 }
-nat_ami = "ami-024cf76afbc833688" # in us east 1
-# nat_ami = "ami-056d6c2cc103e038c" # in us east 2
-normal_ami = "ami-08982f1c5bf93d976" # in us east 1
-# normal_ami = "ami-0ca4d5db4872d0c28" # in us east 2
+# nat_ami = "ami-024cf76afbc833688" # in us east 1
+nat_ami = "ami-056d6c2cc103e038c" # in us east 2
+# normal_ami = "ami-08982f1c5bf93d976" # in us east 1
+normal_ami = "ami-0ca4d5db4872d0c28" # in us east 2
 
 # Load balancer configuration
 lb_config = {
@@ -54,7 +54,7 @@ lb_config = {
     },
     {
       name     = "backend"
-      port     = 80
+      port     = 8080
       protocol = "HTTP"
       health_check = {
         path = "/backend"

@@ -11,9 +11,9 @@ module "ec2_security_group" {
   ingress_rules = [
     {
       description = "HTTP from ALB"
-      protocol    = "tcp"
-      from_port   = 80
-      to_port     = 80
+      protocol    = "-1"
+      from_port   = 0
+      to_port     = 0
       cidr_blocks = ["0.0.0.0/0"]
     },
   ]
@@ -43,17 +43,10 @@ module "awsvpc_mode_security_group" {
 
   ingress_rules = [
     {
-      description = "HTTP from ALB"
-      protocol    = "tcp"
-      from_port   = 80
-      to_port     = 80
-      cidr_blocks = ["0.0.0.0/0"]
-    },
-    {
-      description = "HTTPS from ALB"
-      protocol    = "tcp"
-      from_port   = 443
-      to_port     = 443
+      description = "Allow inter-task communication"
+      protocol    = "-1"
+      from_port   = 0
+      to_port     = 0
       cidr_blocks = [var.vpc_cidr]
     }
   ]
@@ -152,41 +145,4 @@ module "ecs_task_role" {
   create_instance_profile = false
 
   tags = var.tags
-}
-
-#  SG for LB
-module "lb_security_group" {
-  count = var.load_balancer_config != null ? 1 : 0
-  tags = var.tags
-  source = "../security_group"
-
-  security_group_name        = "${var.cluster_name}-lb-sg"
-  security_group_description = "Security group for ECS Load Balancer"
-  vpc_id                     = var.vpc_id
-
-  ingress_rules = [
-    {
-      description = "HTTP from anywhere"
-      protocol    = "tcp"
-      from_port   = 80
-      to_port     = 80
-      cidr_blocks = ["0.0.0.0/0"]
-    },
-    {
-      description = "HTTPS from anywhere"
-      protocol    = "tcp"
-      from_port   = 443
-      to_port     = 443
-      cidr_blocks = ["0.0.0.0/0"]
-    }
-  ]
-  egress_rules = [
-    {
-      description = "All outbound traffic"
-      protocol    = "-1"
-      from_port   = 0
-      to_port     = 0
-      cidr_blocks = ["0.0.0.0/0"]
-    }
-  ]
 }

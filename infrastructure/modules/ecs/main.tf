@@ -123,7 +123,15 @@ resource "aws_ecs_capacity_provider" "ec2" {
   auto_scaling_group_provider {
     auto_scaling_group_arn         = aws_autoscaling_group.ecs[0].arn
     managed_termination_protection = "ENABLED"
-  }
+    managed_scaling {
+      status                    = "ENABLED"
+      target_capacity           = var.ec2_target_capacity
+      minimum_scaling_step_size = 1
+      maximum_scaling_step_size = 5
+      instance_warmup_period    = 120
+    }
+
+  } 
 
   tags = var.tags
 }
@@ -144,6 +152,18 @@ resource "aws_ecs_cluster_capacity_providers" "ecs_cluster_capacity_providers" {
   }
 }
 
+#Log groups for tasks
+resource "aws_cloudwatch_log_group" "ecs_log_groups" {
+  for_each = var.services
+
+  name              = "/ecs/${var.cluster_name}/${each.key}"
+  retention_in_days = var.log_retention_in_days
+
+  tags = {
+    Name = "ECS Log Group for ${each.key}"
+  }
+}
+
 # Task Definitions for multiple services
 resource "aws_ecs_task_definition" "ecs_task_definitions" {
   for_each = var.services
@@ -156,7 +176,32 @@ resource "aws_ecs_task_definition" "ecs_task_definitions" {
   execution_role_arn       = module.ecs_task_execution_role.role_arn
   task_role_arn            = module.ecs_task_role.role_arn
 
-  container_definitions = jsonencode(each.value.container_definitions)
+  container_definitions = jsonencode([
+    for container in each.value.container_definitions : {
+      name      = container.name
+      image     = container.image
+      cpu       = container.cpu
+      memory    = container.memory
+      essential = contains(keys(container), "essential") ? container.essential : true
+      portMappings = [
+        for port in container.portMappings : {
+          containerPort = port.containerPort
+          hostPort      = port.hostPort
+          protocol      = port.protocol
+          name          = port.name
+        }
+      ]
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          awslogs-group         = "/ecs/${var.cluster_name}/${each.key}"
+          awslogs-region        = var.aws_region
+          awslogs-stream-prefix = "ecs"
+        }
+
+      }
+    }
+  ])
 
   dynamic "runtime_platform" {
     for_each = var.launch_type == "FARGATE" ? [1] : []
@@ -227,7 +272,7 @@ resource "aws_ecs_service" "ecs_services" {
           dynamic "client_alias" {
             for_each = try(service.value.client_alias, null) != null ? [service.value.client_alias] : []
             content {
-              port     = client_alias.value.port
+              port = client_alias.value.port
             }
           }
         }
@@ -235,6 +280,6 @@ resource "aws_ecs_service" "ecs_services" {
     }
   }
 
-  tags = var.tags
-  depends_on = [ aws_ecs_task_definition.ecs_task_definitions ]
+  tags       = var.tags
+  depends_on = [aws_ecs_task_definition.ecs_task_definitions]
 }

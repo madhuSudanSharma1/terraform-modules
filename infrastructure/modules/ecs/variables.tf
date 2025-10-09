@@ -17,7 +17,7 @@ variable "subnets" {
 
 variable "ec2_instance_type" {
   type        = string
-  default     = "t3.micro"
+  default     = "t3.medium"
   description = "Instance type for EC2 launch type"
 }
 
@@ -35,23 +35,6 @@ variable "ec2_desired_capacity" {
   type    = number
   default = 1
 }
-
-# Task definition
-variable "ecs_task_cpu" {
-  type    = string
-  default = "256"
-}
-
-variable "ecs_task_memory" {
-  type    = string
-  default = "512"
-}
-
-variable "ecs_desired_count" {
-  type    = number
-  default = 2
-}
-
 
 variable "fargate_assign_public_ip" {
   type        = bool
@@ -72,7 +55,7 @@ variable "tags" {
 variable "log_retention_in_days" {
   description = "Number of days to retain logs in CloudWatch"
   type        = number
-  default     = 30
+  default     = 7
 }
 variable "vpc_id" {
   description = "VPC ID where ECS cluster and tasks will be deployed"
@@ -103,20 +86,7 @@ variable "ec2_target_capacity" {
   type        = number
   default     = 80
 }
-variable "service_discovery_registry_arn" {
-  type        = string
-  default     = null
-  description = "ARN of the service discovery registry (if using service discovery)"
-}
-variable "load_balancer_config" {
-  description = "Load balancer configuration for the ECS service"
-  type = object({
-     lb_listeners = list(any)
-      lb_target_groups = list(any)
-      lb_listener_rules = list(any)
-  })
-  default = null # No load balancer by default
-}
+
 
 variable "capacity_provider_strategies" {
   description = "Capacity provider strategies for MIXED launch type"
@@ -161,5 +131,10 @@ variable "services" {
     }))
   }))
   default = {}
+}
+
+variable "aws_region" {
+  description = "AWS region to deploy resources"
+  type        = string
 }
 
