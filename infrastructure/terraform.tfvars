@@ -1,9 +1,9 @@
 aws_region         = "us-east-2"
 vpc_name           = "madhu"
 vpc_cidr           = "10.0.0.0/16"
-availability_zones = ["us-east-2a", "us-east-2b"]
-public_subnets     = ["10.0.1.0/24", "10.0.3.0/24"]
-private_subnets    = ["10.0.2.0/24", "10.0.4.0/24"]
+availability_zones = ["us-east-2a", "us-east-2b","us-east-2c"]
+public_subnets     = ["10.0.1.0/24", "10.0.3.0/24","10.0.5.0/24"]
+private_subnets    = ["10.0.2.0/24", "10.0.4.0/24","10.0.6.0/24"]
 secondary_cidr     = null
 tags = {
   Environment = "dev"
@@ -88,3 +88,6 @@ lb_config = {
   ]
 
 }
+
+# RDS
+rds_master_password = "SecurePassword123!"

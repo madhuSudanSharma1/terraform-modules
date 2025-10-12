@@ -2,6 +2,7 @@ variable "aws_region" {
   description = "The AWS region to deploy resources in"
   type        = string
 }
+# VPC
 variable "vpc_name" {
   description = "The name of the VPC"
   type        = string
@@ -74,7 +75,7 @@ variable "normal_ami" {
   type        = string
 }
 
-
+# Load Balancer
 variable "lb_config" {
   type = object({
     lb_listeners = list(object({
@@ -129,6 +130,7 @@ variable "lb_config" {
 
 }
 
+# ECS
 variable "ecs_cluster_name" {
   description = "The name of the ECS cluster"
   type        = string
@@ -144,4 +146,11 @@ variable "ec2_network_mode" {
   description = "The network mode for EC2 launch type (bridge, host, awsvpc, none)"
   type        = string
   default     = "bridge"  
+}
+
+# RDS
+variable "rds_master_password" {
+  description = "The master password for the RDS instance"
+  type        = string
+  sensitive   = true
 }

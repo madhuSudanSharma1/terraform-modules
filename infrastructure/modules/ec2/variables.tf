@@ -29,6 +29,7 @@ variable "key_name" {
 variable "iam_instance_profile" {
   type        = string
   description = "IAM instance profile name or ARN to associate"
+  default     = null
 }
 
 variable "security_group_ids" {
