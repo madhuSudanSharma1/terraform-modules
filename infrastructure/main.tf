@@ -4,21 +4,21 @@ provider "aws" {
 
 
 # VPC
-module "vpc" {
-  source               = "./modules/vpc"
-  name                 = var.vpc_name
-  vpc_cidr             = var.vpc_cidr
-  azs                  = var.availability_zones
-  public_subnets       = var.public_subnets
-  private_subnets      = var.private_subnets
-  enable_dns_hostnames = true
-  enable_dns_support   = true
-  tags                 = var.tags
-  route_entries        = var.route_entries
-  nat_type             = var.nat_type
-  nat_ami              = var.nat_ami
-  nat_instance_type    = "t2.micro"
-}
+# module "vpc" {
+#   source               = "./modules/vpc"
+#   name                 = var.vpc_name
+#   vpc_cidr             = var.vpc_cidr
+#   azs                  = var.availability_zones
+#   public_subnets       = var.public_subnets
+#   private_subnets      = var.private_subnets
+#   enable_dns_hostnames = true
+#   enable_dns_support   = true
+#   tags                 = var.tags
+#   route_entries        = var.route_entries
+#   nat_type             = var.nat_type
+#   nat_ami              = var.nat_ami
+#   nat_instance_type    = "t2.micro"
+# }
 
 # Load Balancer
 # module "load_balancer" {
@@ -115,62 +115,65 @@ module "vpc" {
 # }
 
 # RDS
-module "rds" {
-  source = "./modules/rds"
-  vpc_id = module.vpc.vpc_id
-  deployment_type = "multi-az-db-cluster"
-  subnet_ids = [
-    for az, subnet in module.vpc.subnet_ids_by_az : subnet.private
-    if subnet.private != null
-  ]
-  master_password = var.rds_master_password
-  tags = {
-    Environment = "dev"
-    Project     = "modular-infra"
-  }
-  # engine_version = "14.7"
-  instance_class = "db.m5d.large"
-  storage_type = "gp3"
-  depends_on = [ module.vpc  ]
-}
+# module "rds" {
+#   source = "./modules/rds"
+#   vpc_id = module.vpc.vpc_id
+#   deployment_type = "multi-az-db-cluster"
+#   subnet_ids = [
+#     for az, subnet in module.vpc.subnet_ids_by_az : subnet.private
+#     if subnet.private != null
+#   ]
+#   master_password = var.rds_master_password
+#   tags = {
+#     Environment = "dev"
+#     Project     = "modular-infra"
+#   }
+#   # instance_class = "db.m5d.large"
+#   # storage_type = "gp3"
+#   depends_on = [ module.vpc  ]
+# }
 
 
-module "security_group" {
-  source = "./modules/security_group"
-  vpc_id = module.vpc.vpc_id
-  ingress_rules = [
+module "s3" {
+  source      = "./modules/s3"
+  bucket_name = "madhu-s3-module-test"
+  lifecycle_rules = [
     {
-      from_port   = 22
-      to_port     = 22
-      protocol    = "tcp"
-      cidr_blocks = ["0.0.0.0/0"]
-    },
-    {
-      from_port   = 5432
-      to_port     = 5432
-      protocol    = "tcp"
-      cidr_blocks = [module.vpc.vpc_cidr_block]
+      id     = "log"
+      filter = { prefix = "log/" }
+      transitions = [
+        {
+          days          = 30
+          storage_class = "STANDARD_IA"
+        },
+        {
+          days          = 60
+          storage_class = "GLACIER"
+        }
+      ]
     }
   ]
-  egress_rules = [
+
+  enable_sse_s3           = true
+  enable_static_hosting   = true
+  index_document          = "main.html"
+  error_document          = "error.html"
+  force_destroy           = true
+  object_lock_enabled     = true
+  restrict_public_buckets = false
+  block_public_policy = false
+  bucket_policy           = <<POLICY
+{
+  "Version": "2012-10-17",
+  "Statement": [
     {
-      from_port   = 0
-      to_port     = 0
-      protocol    = "-1"
-      cidr_blocks = ["0.0.0.0/0"]
+      "Effect": "Allow",
+      "Principal": "*",
+      "Action": "s3:GetObject",
+      "Resource": "arn:aws:s3:::madhu-s3-module-test/*"
     }
   ]
-  tags = {
-    Environment = "dev"
-    Project     = "modular-infra"
-  }
 }
+POLICY
 
-module "ec2" {
-  source                      = "./modules/ec2"
-  subnet_id                   = values(module.vpc.subnet_ids_by_az)[0].public
-  ami_id                      = var.normal_ami
-  name                        = "ec2-rds-test"
-  associate_public_ip_address = true
-  security_group_ids          = [module.security_group.security_group_id]
 }

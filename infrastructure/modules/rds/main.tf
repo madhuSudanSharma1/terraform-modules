@@ -174,24 +174,3 @@ resource "aws_rds_cluster" "multi_az_cluster" {
   })
 }
 
-# RDS Cluster Instances (for Multi-AZ DB Clusters)
-# resource "aws_rds_cluster_instance" "multi_az_cluster_instances" {
-#   count                      = local.is_multi_az_db_cluster ? var.db_cluster_size : 0
-#   engine                     = var.engine_type
-#   engine_version             = var.engine_version
-#   identifier                 = "${var.name_prefix}-instance-${count.index}"
-#   cluster_identifier         = aws_rds_cluster.multi_az_cluster[0].id
-#   instance_class             = var.instance_class
-#   db_subnet_group_name       = aws_db_subnet_group.db_subnet_group.name
-#   auto_minor_version_upgrade = var.auto_minor_version_upgrade
-#   db_parameter_group_name    = aws_db_parameter_group.db_params.name
-#   apply_immediately          = var.apply_immediately
-
-#   performance_insights_enabled          = var.performance_insights_enabled
-#   performance_insights_retention_period = var.performance_insights_retention_period
-#   performance_insights_kms_key_id       = var.performance_insights_enabled ? aws_kms_key.rds_key.arn : null
-
-#   tags = merge(var.tags, {
-#     Name = "${var.name_prefix}-multi-az-cluster-instance-${count.index}"
-#   })
-# }
